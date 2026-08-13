@@ -1,0 +1,9 @@
+
+v0 --> autoclaved soil with wires in it
+v1 --> soil sample replicate 1
+v2 --> soil sample replicate 2
+
+positive anode (red) and negative cathode (black)
+read started at 17:00
+
+20260813 19:26 experiment finished
