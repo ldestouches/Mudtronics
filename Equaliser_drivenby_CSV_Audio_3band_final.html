@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>CSV-driven 3-band EQ — pixel-art harmonised final</title>
+<style>
+  :root {
+    color-scheme: dark;
+  }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #020309;
+    background-image:
+      radial-gradient(circle at 15% 20%, rgba(255,255,255,0.08), transparent 16%),
+      radial-gradient(circle at 80% 30%, rgba(90,170,255,0.08), transparent 18%),
+      radial-gradient(circle at 55% 80%, rgba(255,180,100,0.06), transparent 22%);
+    font-family: system-ui, sans-serif;
+    color: #e5ebf7;
+  }
+  .page-wrapper {
+    width: min(1180px, calc(100% - 2rem));
+    margin: 0 auto;
+    padding: 1.2rem 0 2rem;
+    display: grid;
+    gap: 1rem;
+  }
+  .dashboard-grid {
+    display: grid;
+    gap: 1rem;
+  }
+  .dashboard-grid.top {
+    grid-template-columns: minmax(280px, 420px) minmax(320px, 1fr);
+    align-items: start;
+  }
+  .dashboard-grid.bottom {
+    grid-template-columns: minmax(240px, 320px) minmax(360px, 1fr);
+    align-items: start;
+  }
+  .panel {
+    background: rgba(10, 14, 24, 0.92);
+    border: 1px solid rgba(130, 160, 230, 0.12);
+    border-radius: 18px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.28);
+    padding: 1rem;
+  }
+  h1, h2 {
+    margin: 0;
+    letter-spacing: 0.06em;
+  }
+  h1 { font-size: 1.4rem; }
+  h2 { font-size: 1rem; margin-bottom: 0.8rem; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0 0 0.5rem;
+  }
+  .controls label,
+  .controls button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-size: 0.92rem;
+    color: #dae6fb;
+  }
+  .controls label {
+    cursor: pointer;
+  }
+  .controls input[type=file] {
+    max-width: 160px;
+    font-size: 0.82rem;
+  }
+  .controls button {
+    border: 1px solid rgba(150, 190, 255, 0.18);
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+    background: rgba(7, 12, 22, 0.92);
+    cursor: pointer;
+  }
+  .controls button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .status {
+    font-size: 0.9rem;
+    color: #90a5d4;
+    margin: 0.2rem 0 0;
+  }
+  .legend {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    gap: 0.55rem 1rem;
+    margin-top: 0.85rem;
+    font-size: 0.88rem;
+    color: #b8c7e3;
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .band-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.9rem;
+  }
+  .band {
+    border: 1px solid rgba(170, 190, 240, 0.18);
+    border-radius: 14px;
+    padding: 0.8rem;
+    background: rgba(8, 12, 20, 0.95);
+  }
+  .band label {
+    display: grid;
+    gap: 0.5rem;
+    font-size: 0.92rem;
+  }
+  .band input[type=range] {
+    width: 100%;
+  }
+  .band p {
+    margin: 0.4rem 0 0;
+    font-size: 0.8rem;
+    color: #9bb1d5;
+  }
+  .canvas-panel {
+    display: grid;
+    gap: 1rem;
+  }
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .panel-note {
+    color: #b2c4e3;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    margin: 0.75rem 0 1rem;
+  }
+  .status-block {
+    display: grid;
+    gap: 0.85rem;
+    margin-top: 0.85rem;
+  }
+  .panel-summary .status {
+    margin: 0;
+  }
+  .panel-summary .legend {
+    margin-top: 0.2rem;
+  }
+  .panel-bands .band {
+    min-height: 176px;
+  }
+  .panel-bands .band p {
+    margin-top: 0.35rem;
+  }
+  canvas {
+    width: 100%;
+    display: block;
+    border-radius: 16px;
+    background: #020512;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 18px 44px rgba(0,0,0,0.25);
+  }
+  #pixelCanvas {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    max-width: 100%;
+    aspect-ratio: 180 / 114;
+  }
+  .trace-panel {
+    display: grid;
+    gap: 0.7rem;
+  }
+  .trace-panel h2 {
+    margin: 0;
+    font-size: 0.96rem;
+  }
+  .help-text {
+    color: #7f98c1;
+    font-size: 0.86rem;
+    margin: 0.35rem 0 0;
+  }
+  @media (max-width: 860px) {
+    .dashboard-grid.top,
+    .dashboard-grid.bottom {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+  <div class="dashboard-grid top">
+    <section class="panel panel-summary">
+      <div class="panel-header">
+        <div>
+          <h1>CSV-driven 3-band EQ</h1>
+          <p class="panel-note">A gathered dashboard for harmonised audio shaping, device-driven automation, and spectral feedback.</p>
+        </div>
+      </div>
+      <div class="controls">
+        <label>Load MP3
+          <input type="file" id="audioInput" accept="audio/*">
+        </label>
+        <button id="playBtn" disabled>▶ Play</button>
+        <label>Audio set
+          <select id="audioSelect"></select>
+        </label>
+        <button id="shuffleAudioBtn">Shuffle</button>
+      </div>
+      <div class="controls">
+        <label>Load CSV
+          <input type="file" id="csvInput" accept=".csv">
+        </label>
+        <label>Preset CSV
+          <select id="csvPresetSelect"></select>
+        </label>
+      </div>
+      <div class="controls">
+        <button id="autoToggle">CSV AUTO OFF</button>
+        <button id="bassBoostBtn">Infrasonic Boost OFF</button>
+        <button id="resetAuto">Reset locks</button>
+      </div>
+      <div class="status-block">
+        <p id="statusLine" class="status">Loading CSV recipe and waiting for audio input...</p>
+        <div class="legend">
+          <span><span class="dot" style="background:#ffa500"></span>Device 1 → Low</span>
+          <span><span class="dot" style="background:#42ff8a"></span>Device 2 → Mid</span>
+          <span><span class="dot" style="background:#4da6ff"></span>Device 3 → High</span>
+          <span><span class="dot" style="background:#78b5ff"></span>Dry signal</span>
+          <span><span class="dot" style="background:#ffbb44"></span>Processed signal</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel-bands">
+      <div class="panel-header">
+        <h2>Band control matrix</h2>
+        <span class="panel-note">Drag sliders to lock bands and let CSV automation update the rest.</span>
+      </div>
+      <div class="band-grid">
+        <div class="band">
+          <label>Low (<span id="lowVal">0dB</span>)
+            <input type="range" id="bandLow" min="-24" max="24" step="0.5" value="0">
+          </label>
+          <p>Low shelf / sub-bass</p>
+          <p>Locked: <span id="lowLock">no</span></p>
+        </div>
+        <div class="band">
+          <label>Mid (<span id="midVal">0dB</span>)
+            <input type="range" id="bandMid" min="-24" max="24" step="0.5" value="0">
+          </label>
+          <p>Bandpass 600–4000 Hz</p>
+          <p>Locked: <span id="midLock">no</span></p>
+        </div>
+        <div class="band">
+          <label>High (<span id="highVal">0dB</span>)
+            <input type="range" id="bandHigh" min="-24" max="24" step="0.5" value="0">
+          </label>
+          <p>High shelf / presence</p>
+          <p>Locked: <span id="highLock">no</span></p>
+        </div>
+      </div>
+      <p class="help-text">Manual slider movement locks that band. CSV AUTO only drives unlocked bands.</p>
+    </section>
+  </div>
+
+  <div class="dashboard-grid bottom">
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Pixel-art EQ status</h2>
+        <span class="panel-note">A compact visual summary of current band gains and the EQ state.</span>
+      </div>
+      <canvas id="pixelCanvas" width="180" height="114"></canvas>
+      <p class="help-text">Dry baseline plus coloured bars show low/mid/high gain activity in a small retro display.</p>
+    </section>
+
+    <section class="panel trace-panel">
+      <div class="panel-header">
+        <h2>Live trace & FFT dashboard</h2>
+        <span class="panel-note">Device traces with raw and wet spectrum overlays, wrapped in a dusty oscilloscope aesthetic.</span>
+      </div>
+      <canvas id="traceCanvas" width="780" height="220"></canvas>
+      <p class="help-text">Raw and processed FFT are framed in separate bands above the device voltage trace for easy comparison.</p>
+    </section>
+  </div>
+</div>
+<audio id="audioPlayer" preload="auto"></audio>
+<script>
+const pixelCanvas = document.getElementById('pixelCanvas');
+const pixelCtx = pixelCanvas.getContext('2d');
+pixelCtx.imageSmoothingEnabled = false;
+const traceCanvas = document.getElementById('traceCanvas');
+const traceCtx = traceCanvas.getContext('2d');
+const audioEl = document.getElementById('audioPlayer');
+const playBtn = document.getElementById('playBtn');
+const audioInput = document.getElementById('audioInput');
+const audioSelect = document.getElementById('audioSelect');
+const shuffleAudioBtn = document.getElementById('shuffleAudioBtn');
+const csvInput = document.getElementById('csvInput');
+const csvPresetSelect = document.getElementById('csvPresetSelect');
+const autoToggle = document.getElementById('autoToggle');
+const bassBoostBtn = document.getElementById('bassBoostBtn');
+const resetAuto = document.getElementById('resetAuto');
+const statusLine = document.getElementById('statusLine');
+const bandLow = document.getElementById('bandLow');
+const bandMid = document.getElementById('bandMid');
+const bandHigh = document.getElementById('bandHigh');
+const lowVal = document.getElementById('lowVal');
+const midVal = document.getElementById('midVal');
+const highVal = document.getElementById('highVal');
+const lowLock = document.getElementById('lowLock');
+const midLock = document.getElementById('midLock');
+const highLock = document.getElementById('highLock');
+
+const bandNames = ['Low', 'Mid', 'High'];
+const bandLabels = [lowVal, midVal, highVal];
+const bandLockLabels = [lowLock, midLock, highLock];
+const bandInputs = [bandLow, bandMid, bandHigh];
+const manualLock = [false, false, false];
+const bandGain = [0, 0, 0];
+const bandFreqs = [220, 1550, 4200];
+const GAIN_MULTIPLIER = 1.4;
+const preloadedAudioFiles = [
+  'pyrenees ft kode9 (1).mp3',
+  'sculpted_pianos.mp3',
+  '45- instru fruit tea 81bpm.mp3'
+];
+const preloadedCsvSets = [
+  { label: 'Analog voltage log', file: 'analog_voltage_log.csv' },
+  { label: 'Combined device sets', file: 'combined_device_sets.csv' },
+  { label: 'Device set 01', file: 'device_sets/set_01.csv' },
+  { label: 'Device set 02', file: 'device_sets/set_02.csv' },
+  { label: 'Device set 03', file: 'device_sets/set_03.csv' },
+  { label: 'Device set 04', file: 'device_sets/set_04.csv' },
+  { label: 'Device set 05', file: 'device_sets/set_05.csv' },
+  { label: 'Device set 06', file: 'device_sets/set_06.csv' },
+  { label: 'Device set 07', file: 'device_sets/set_07.csv' },
+  { label: 'Device set 08', file: 'device_sets/set_08.csv' },
+  { label: 'Device set 09', file: 'device_sets/set_09.csv' },
+  { label: 'Device set 10', file: 'device_sets/set_10.csv' },
+  { label: 'Device set 11', file: 'device_sets/set_11.csv' },
+  { label: 'Device set 12', file: 'device_sets/set_12.csv' }
+];
+
+let audioCtx = null;
+let audioInputGain = null;
+let audioPan = null;
+let audioOutputGain = null;
+let analyserInput = null;
+let analyserOutput = null;
+let eqFilters = [];
+let eqGainNodes = [];
+let eqMerge = null;
+let lowShelf = null;
+let infrasonicShelf = null;
+let traceData = [];
+let dryFrequency = null;
+let wetFrequency = null;
+let deviceData = [];
+let deviceCount = 3;
+let dataMin = 0;
+let dataMax = 400;
+let dataDuration = 1;
+let autoDrive = false;
+let infrasonicBoost = false;
+let playMarker = 0;
+
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function fmtDb(gain) { return `${gain >= 0 ? '+' : ''}${gain.toFixed(1)} dB`; }
+function dbToGain(db) { return Math.pow(10, db / 20); }
+function setStatus(text) { statusLine.textContent = text; }
+
+function loadAudioFileFromUrl(url, label) {
+  if (!audioEl) return;
+  audioEl.src = url;
+  audioEl.load();
+  initAudioGraph();
+  updateAudioSettings();
+  setStatus(`Loaded ${label || url}`);
+  playBtn.disabled = false;
+  if (audioSelect) audioSelect.value = url;
+}
+
+function populateSelect(select, items) {
+  if (!select) return;
+  select.innerHTML = items.map(item => {
+    if (typeof item === 'string') {
+      return `<option value="${item}">${item}</option>`;
+    }
+    return `<option value="${item.file}">${item.label}</option>`;
+  }).join('');
+}
+
+function loadCsvPreset(file, label) {
+  if (!file) return;
+  loadCsvFromUrl(file, label || file);
+}
+
+function shuffleAudio() {
+  const choice = preloadedAudioFiles[Math.floor(Math.random() * preloadedAudioFiles.length)];
+  if (choice) loadAudioFileFromUrl(choice, `Shuffled audio ${choice}`);
+}
+
+function setDefaultSelections() {
+  populateSelect(audioSelect, preloadedAudioFiles);
+  populateSelect(csvPresetSelect, preloadedCsvSets);
+  const randomAudio = preloadedAudioFiles[Math.floor(Math.random() * preloadedAudioFiles.length)];
+  if (randomAudio) {
+    loadAudioFileFromUrl(randomAudio, `Preloaded audio ${randomAudio}`);
+  }
+  if (csvPresetSelect && csvPresetSelect.value) {
+    loadCsvPreset(csvPresetSelect.value, csvPresetSelect.options[csvPresetSelect.selectedIndex]?.text);
+  }
+}
+
+function updateAutoButton() {
+  autoToggle.textContent = autoDrive ? 'CSV AUTO ON' : 'CSV AUTO OFF';
+  autoToggle.style.background = autoDrive ? 'rgba(20, 60, 35, 0.95)' : 'rgba(10, 14, 24, 0.96)';
+}
+function updateBassBoostButton() {
+  bassBoostBtn.textContent = infrasonicBoost ? 'Infrasonic Boost ON' : 'Infrasonic Boost OFF';
+  bassBoostBtn.style.background = infrasonicBoost ? 'rgba(48, 24, 72, 0.95)' : 'rgba(10, 14, 24, 0.96)';
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  const rows = lines.map(line => line.split(',').map(value => value.trim()));
+  const headerOffset = rows[0].some(cell => isNaN(parseFloat(cell))) ? 1 : 0;
+  return rows.slice(headerOffset).map(row => row.map(Number));
+}
+
+function loadDeviceData(rows) {
+  const clean = rows.filter(row => row.length >= 3 && row.slice(0, 3).every(v => !Number.isNaN(v)));
+  if (!clean.length) return;
+  deviceData = clean.map(row => row.slice(0, 3));
+  deviceCount = Math.min(3, deviceData[0].length);
+  let mn = Infinity, mx = -Infinity;
+  deviceData.forEach(row => row.forEach(value => {
+    mn = Math.min(mn, value);
+    mx = Math.max(mx, value);
+  }));
+  dataMin = mn;
+  dataMax = mx > mn ? mx : mn + 1;
+  dataDuration = Math.max(1, clean.length - 1);
+  traceData = deviceData.map(row => row.slice(0, 3));
+}
+
+function mapCSVToBands(sample) {
+  if (!sample.length) return [0, 0, 0];
+  const device1 = sample[0] ?? 0;
+  const device2 = sample[1] ?? 0;
+  const device3 = sample[2] ?? 0;
+  return [
+    mapRange(device1, dataMin, dataMax, -12, 12),
+    mapRange(device2, dataMin, dataMax, -12, 12),
+    mapRange(device3, dataMin, dataMax, -12, 12)
+  ];
+}
+
+function mapRange(value, inMin, inMax, outMin, outMax) {
+  const mapped = ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+  return clamp(mapped, Math.min(outMin, outMax), Math.max(outMin, outMax));
+}
+
+function drawPixelDisplay() {
+  const w = pixelCanvas.width;
+  const h = pixelCanvas.height;
+  const p = (x, y, c) => { pixelCtx.fillStyle = c; pixelCtx.fillRect(x, y, 1, 1); };
+  const r = (x, y, ww, hh, c) => { pixelCtx.fillStyle = c; pixelCtx.fillRect(x, y, ww, hh); };
+
+  pixelCtx.clearRect(0, 0, w, h);
+  r(0, 0, w, h, '#04050a');
+  r(3, 3, w - 6, h - 6, '#0d1322');
+  r(4, 4, w - 8, h - 8, '#081023');
+  r(4, 4, w - 8, 8, '#0d162e');
+  r(4, 12, w - 8, 7, '#091227');
+
+  // screen frame
+  r(8, 18, w - 16, 76, '#041018');
+  r(8, 18, w - 16, 1, '#13213e');
+  r(8, 93, w - 16, 1, '#13213e');
+  r(8, 18, 1, 76, '#13213e');
+  r(w - 9, 18, 1, 76, '#13213e');
+
+  // dry baseline
+  const baseline = 18 + 38;
+  r(10, baseline, w - 20, 1, '#3f5aae');
+  for (let x = 10; x < w - 10; x += 4) p(x, baseline, '#6e8ed2');
+
+  // volume bars for low/mid/high
+  const barWidth = 22;
+  const barSpacing = 16;
+  const startX = 20;
+  const colors = ['#ffa500', '#42ff8a', '#4da6ff'];
+  for (let b = 0; b < 3; b++) {
+    const barX = startX + b * (barWidth + barSpacing);
+    const barTop = 24;
+    const barHeight = 62;
+    r(barX, barTop, barWidth, barHeight, '#08111b');
+    r(barX, barTop, barWidth, 1, '#13324f');
+    r(barX, barTop + barHeight - 1, barWidth, 1, '#13324f');
+    const normalized = (bandGain[b] + 24) / 48;
+    const fillHeight = Math.round(normalized * (barHeight - 4));
+    if (fillHeight > 0) r(barX + 2, barTop + barHeight - 2 - fillHeight, barWidth - 4, fillHeight, colors[b]);
+    const labelY = barTop + barHeight + 4;
+    const label = ['LOW', 'MID', 'HIGH'][b];
+    for (let i = 0; i < label.length; i++) {
+      const ch = label[i];
+      if (ch === ' ') continue;
+      const px = barX + 2 + i * 4;
+      const py = labelY;
+      const glyph = {
+        L:['#',' ',' ',' ',' '],
+      };
+    }
+  }
+
+  // small text hints
+  const drawText = (x, y, text, color) => {
+    const glyphs = {
+      'L': ['#    ','#    ','#    ','#    ','#####'],
+      'O': [' ### ','#   #','#   #','#   #',' ### '],
+      'W': ['#   #','#   #','# # #','## ##','#   #'],
+      'M': ['#   #','## ##','# # #','#   #','#   #'],
+      'I': [' ### ','  #  ','  #  ','  #  ',' ### '],
+      'D': ['#### ','#   #','#   #','#   #','#### '],
+      'H': ['#   #','#   #','#####','#   #','#   #'],
+      'G': [' ### ','#    ','#  ##','#   #',' ### '],
+      'B': ['#### ','#   #','#### ','#   #','#### '],
+      ' ': ['     ','     ','     ','     ','     '],
+      '+': ['     ','  #  ',' ### ','  #  ','     '],
+      '-': ['     ','     ',' ### ','     ','     '],
+    };
+    const sx = x;
+    for (let ci = 0; ci < text.length; ci++) {
+      const glyph = glyphs[text[ci]] || glyphs[' '];
+      for (let row = 0; row < glyph.length; row++) {
+        for (let col = 0; col < glyph[row].length; col++) {
+          if (glyph[row][col] === '#') p(sx + ci * 4 + col, y + row, color);
+        }
+      }
+    }
+  };
+  drawText(14, 100, 'LOW MID HIGH', '#8eb7ff');
+  drawText(18, 7, 'EQ 3', '#b2d4ff');
+
+  // gain readouts
+  const fmt = value => `${value >= 0 ? '+' : ''}${value.toFixed(0)}`;
+  drawText(22, 84, fmt(bandGain[0]), '#f8bf7f');
+  drawText(76, 84, fmt(bandGain[1]), '#9effb2');
+  drawText(136, 84, fmt(bandGain[2]), '#99c8ff');
+}
+
+function drawTraceCanvas(progress = 0) {
+  const w = traceCanvas.width;
+  const h = traceCanvas.height;
+
+  // Create an oscilloscope-style persistent glow with a thin fading wash.
+  traceCtx.globalCompositeOperation = 'source-over';
+  traceCtx.fillStyle = 'rgba(4, 8, 14, 0.18)';
+  traceCtx.fillRect(0, 0, w, h);
+
+  const leftPad = 28;
+  const rightPad = 20;
+  const scopeWidth = w - leftPad - rightPad;
+  const scopeHeight = 46;
+  const sectionGap = 10;
+  const rawY = 18;
+  const wetY = rawY + scopeHeight + sectionGap;
+  const traceTop = wetY + scopeHeight + 28;
+  const traceHeight = h - traceTop - 24;
+  const points = traceData.length;
+  const xStep = (w - leftPad - rightPad) / Math.max(1, points - 1);
+  const colors = ['#ffa500', '#42ff8a', '#4da6ff'];
+
+  if (!traceData.length) {
+    traceCtx.fillStyle = '#7a8fb3';
+    traceCtx.font = '16px sans-serif';
+    traceCtx.fillText('Loading CSV device traces...', leftPad, h / 2);
+    return;
+  }
+
+  // Dust particles and scan glow.
+  for (let i = 0; i < 18; i++) {
+    const x = Math.random() * w;
+    const y = Math.random() * h;
+    const size = Math.random() * 1.6 + 0.2;
+    traceCtx.fillStyle = `rgba(180, 210, 255, ${Math.random() * 0.08 + 0.02})`;
+    traceCtx.fillRect(x, y, size, size);
+  }
+  const scanGradient = traceCtx.createLinearGradient(0, 0, w, 0);
+  scanGradient.addColorStop(0, 'rgba(255,255,255,0.00)');
+  scanGradient.addColorStop(0.46, 'rgba(255,255,255,0.02)');
+  scanGradient.addColorStop(0.5, 'rgba(255,255,255,0.06)');
+  scanGradient.addColorStop(0.54, 'rgba(255,255,255,0.02)');
+  scanGradient.addColorStop(1, 'rgba(255,255,255,0.00)');
+  traceCtx.fillStyle = scanGradient;
+  traceCtx.fillRect(0, 0, w, h);
+
+  // FFT backgrounds and labels
+  traceCtx.fillStyle = '#07101f';
+  traceCtx.fillRect(leftPad, rawY, scopeWidth, scopeHeight);
+  traceCtx.fillRect(leftPad, wetY, scopeWidth, scopeHeight);
+  traceCtx.strokeStyle = '#1f3a5a';
+  traceCtx.lineWidth = 1.5;
+  traceCtx.strokeRect(leftPad, rawY, scopeWidth, scopeHeight);
+  traceCtx.strokeRect(leftPad, wetY, scopeWidth, scopeHeight);
+
+  traceCtx.fillStyle = '#a8b8d7';
+  traceCtx.font = '12px sans-serif';
+  traceCtx.fillText('Raw FFT magnitude', leftPad + 6, rawY + 14);
+  traceCtx.fillText('Processed FFT magnitude', leftPad + 6, wetY + 14);
+  traceCtx.fillText('Dusty oscilloscope view', leftPad + scopeWidth - 148, rawY + 14);
+
+  traceCtx.strokeStyle = 'rgba(120,180,255,0.16)';
+  traceCtx.lineWidth = 1;
+  traceCtx.font = '10px sans-serif';
+  traceCtx.fillStyle = '#879cb8';
+  for (let i = 0; i < 3; i++) {
+    const yRaw = rawY + 6 + i * ((scopeHeight - 12) / 2);
+    const yWet = wetY + 6 + i * ((scopeHeight - 12) / 2);
+    traceCtx.beginPath();
+    traceCtx.moveTo(leftPad + 2, yRaw);
+    traceCtx.lineTo(leftPad + scopeWidth - 2, yRaw);
+    traceCtx.moveTo(leftPad + 2, yWet);
+    traceCtx.lineTo(leftPad + scopeWidth - 2, yWet);
+    traceCtx.stroke();
+    const label = `${100 - i * 50}%`;
+    traceCtx.fillText(label, 6, yRaw + 4);
+    traceCtx.fillText(label, 6, yWet + 4);
+  }
+
+  if (analyserInput && analyserOutput && dryFrequency && wetFrequency) {
+    analyserInput.getByteFrequencyData(dryFrequency);
+    analyserOutput.getByteFrequencyData(wetFrequency);
+    const binCount = Math.min(dryFrequency.length, wetFrequency.length);
+    const plotBins = Math.min(64, binCount);
+    const step = Math.floor(binCount / plotBins);
+    const xStepScope = scopeWidth / Math.max(1, plotBins - 1);
+
+    traceCtx.globalCompositeOperation = 'lighter';
+    traceCtx.lineWidth = 2.5;
+    traceCtx.strokeStyle = '#78b5ff';
+    traceCtx.beginPath();
+    for (let i = 0; i < plotBins; i++) {
+      const value = dryFrequency[i * step] / 255;
+      const x = leftPad + i * xStepScope;
+      const y = rawY + scopeHeight - 6 - value * (scopeHeight - 12);
+      if (i === 0) traceCtx.moveTo(x, y);
+      else traceCtx.lineTo(x, y);
+    }
+    traceCtx.stroke();
+
+    traceCtx.strokeStyle = '#ffbb44';
+    traceCtx.beginPath();
+    for (let i = 0; i < plotBins; i++) {
+      const value = wetFrequency[i * step] / 255;
+      const x = leftPad + i * xStepScope;
+      const y = wetY + scopeHeight - 6 - value * (scopeHeight - 12);
+      if (i === 0) traceCtx.moveTo(x, y);
+      else traceCtx.lineTo(x, y);
+    }
+    traceCtx.stroke();
+    traceCtx.globalCompositeOperation = 'source-over';
+  }
+
+  // Device trace area
+  traceCtx.fillStyle = '#05101b';
+  traceCtx.fillRect(leftPad, traceTop, scopeWidth, traceHeight);
+  traceCtx.strokeStyle = '#17304a';
+  traceCtx.lineWidth = 1.5;
+  traceCtx.strokeRect(leftPad, traceTop, scopeWidth, traceHeight);
+  traceCtx.fillStyle = '#95a9d3';
+  traceCtx.font = '12px sans-serif';
+  traceCtx.fillText('Device voltage trace (normalised)', leftPad + 4, traceTop + 14);
+
+  for (let i = 0; i < 4; i++) {
+    const y = traceTop + 16 + i * ((traceHeight - 20) / 3);
+    traceCtx.strokeStyle = 'rgba(130,170,220,0.16)';
+    traceCtx.lineWidth = 1;
+    traceCtx.beginPath();
+    traceCtx.moveTo(leftPad + 4, y);
+    traceCtx.lineTo(leftPad + scopeWidth - 4, y);
+    traceCtx.stroke();
+  }
+
+  const bandMins = [Infinity, Infinity, Infinity];
+  const bandMaxs = [-Infinity, -Infinity, -Infinity];
+  traceData.forEach(row => {
+    row.forEach((value, band) => {
+      bandMins[band] = Math.min(bandMins[band], value);
+      bandMaxs[band] = Math.max(bandMaxs[band], value);
+    });
+  });
+
+  const labelY = ['Low', 'Mid', 'High'];
+  for (let band = 0; band < 3; band++) {
+    traceCtx.strokeStyle = colors[band];
+    traceCtx.lineWidth = 2.5;
+    traceCtx.beginPath();
+    traceData.forEach((row, index) => {
+      const x = leftPad + index * xStep;
+      const min = bandMins[band];
+      const max = bandMaxs[band];
+      const normalized = max === min ? 0.5 : (row[band] - min) / (max - min);
+      const y = traceTop + traceHeight - 8 - normalized * (traceHeight - 20);
+      if (index === 0) traceCtx.moveTo(x, y);
+      else traceCtx.lineTo(x, y);
+    });
+    traceCtx.stroke();
+    traceCtx.fillStyle = colors[band];
+    traceCtx.fillText(`${labelY[band]} (${bandMins[band].toFixed(0)} - ${bandMaxs[band].toFixed(0)})`, w - rightPad - 150, traceTop + 18 + band * 14);
+  }
+
+  const markerX = leftPad + progress * scopeWidth;
+  traceCtx.strokeStyle = '#ffffff';
+  traceCtx.lineWidth = 1.2;
+  traceCtx.beginPath();
+  traceCtx.moveTo(markerX, rawY - 6);
+  traceCtx.lineTo(markerX, h - 18);
+  traceCtx.stroke();
+  traceCtx.fillStyle = '#ffffff';
+  traceCtx.font = '12px sans-serif';
+  traceCtx.fillText(`Progress ${(progress * 100).toFixed(0)}%`, markerX + 8, rawY + 4);
+}
+
+function createEQFilters() {
+  eqFilters = [];
+  eqGainNodes = [];
+  eqMerge = audioCtx.createGain();
+  lowShelf = audioCtx.createBiquadFilter();
+  lowShelf.type = 'lowshelf';
+  lowShelf.frequency.value = 400;
+  lowShelf.gain.value = 0;
+  infrasonicShelf = audioCtx.createBiquadFilter();
+  infrasonicShelf.type = 'lowshelf';
+  infrasonicShelf.frequency.value = 60;
+  infrasonicShelf.gain.value = 0;
+  const mid = audioCtx.createBiquadFilter();
+  mid.type = 'bandpass';
+  mid.frequency.value = 1550;
+  mid.Q.value = 0.45;
+  const midGain = audioCtx.createGain();
+  midGain.gain.value = dbToGain(bandGain[1] * GAIN_MULTIPLIER);
+  const highpass = audioCtx.createBiquadFilter();
+  highpass.type = 'highpass';
+  highpass.frequency.value = 800;
+  const lowpass = audioCtx.createBiquadFilter();
+  lowpass.type = 'lowpass';
+  lowpass.frequency.value = 14000;
+  const highGain = audioCtx.createGain();
+  highGain.gain.value = dbToGain(bandGain[2] * GAIN_MULTIPLIER);
+  eqFilters.push(lowShelf, infrasonicShelf, mid, highpass, lowpass);
+  eqGainNodes.push(midGain, highGain);
+  audioInputGain.connect(lowShelf);
+  lowShelf.connect(infrasonicShelf);
+  infrasonicShelf.connect(eqMerge);
+  audioInputGain.connect(mid);
+  mid.connect(midGain);
+  midGain.connect(eqMerge);
+  audioInputGain.connect(highpass);
+  highpass.connect(lowpass);
+  lowpass.connect(highGain);
+  highGain.connect(eqMerge);
+}
+
+function applyEqFilters() {
+  if (lowShelf) lowShelf.gain.value = bandGain[0] * GAIN_MULTIPLIER;
+  if (infrasonicShelf) infrasonicShelf.gain.value = infrasonicBoost ? 12 : 0;
+  if (eqGainNodes.length) {
+    eqGainNodes[0].gain.value = dbToGain(bandGain[1] * GAIN_MULTIPLIER);
+    eqGainNodes[1].gain.value = dbToGain(bandGain[2] * GAIN_MULTIPLIER);
+  }
+}
+
+function setBandGain(index, gain, markManual = false) {
+  bandGain[index] = clamp(gain, -24, 24);
+  bandInputs[index].value = bandGain[index];
+  bandLabels[index].textContent = fmtDb(bandGain[index]);
+  if (markManual) {
+    manualLock[index] = true;
+    bandLockLabels[index].textContent = 'yes';
+  }
+  if (eqFilters.length) applyEqFilters();
+}
+
+function initAudioGraph() {
+  if (!audioEl) return;
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaElementSource(audioEl);
+    audioInputGain = audioCtx.createGain();
+    audioPan = audioCtx.createStereoPanner();
+    audioOutputGain = audioCtx.createGain();
+    analyserInput = audioCtx.createAnalyser();
+    analyserOutput = audioCtx.createAnalyser();
+    analyserInput.fftSize = 256;
+    analyserOutput.fftSize = 256;
+    dryFrequency = new Uint8Array(analyserInput.frequencyBinCount);
+    wetFrequency = new Uint8Array(analyserOutput.frequencyBinCount);
+    createEQFilters();
+    source.connect(analyserInput);
+    source.connect(audioInputGain);
+    if (eqMerge) {
+      eqMerge.connect(analyserOutput);
+      analyserOutput.connect(audioPan);
+      audioPan.connect(audioOutputGain);
+      audioOutputGain.connect(audioCtx.destination);
+    }
+  }
+}
+
+function updateAudioSettings() {
+  if (audioInputGain) audioInputGain.gain.value = 1;
+  if (audioPan) audioPan.pan.value = 0;
+  if (audioOutputGain) audioOutputGain.gain.value = 1;
+}
+
+function sampleDevices(progress) {
+  const n = deviceData.length;
+  if (!n) return [0, 0, 0];
+  const position = progress * (n - 1);
+  const i0 = Math.floor(position);
+  const i1 = Math.min(i0 + 1, n - 1);
+  const fract = position - i0;
+  const out = [];
+  for (let d = 0; d < deviceCount; d++) {
+    const v0 = deviceData[i0][d];
+    const v1 = deviceData[i1][d];
+    out.push(v0 + (v1 - v0) * fract);
+  }
+  return out;
+}
+
+function applyCsvControl(t) {
+  if (!deviceData.length) return;
+  const progress = audioEl.src && audioEl.duration > 0 && !audioEl.paused
+    ? clamp(audioEl.currentTime / audioEl.duration, 0, 1)
+    : ((t % dataDuration) / dataDuration);
+  const sample = sampleDevices(progress);
+  const bandValues = mapCSVToBands(sample);
+  if (autoDrive) {
+    for (let i = 0; i < 3; i++) {
+      if (!manualLock[i]) setBandGain(i, bandValues[i], false);
+    }
+  }
+  drawTraceCanvas(progress);
+}
+
+function playPause() {
+  if (!audioEl.src) return;
+  if (!audioCtx) initAudioGraph();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioEl.paused) {
+    audioEl.play();
+    playBtn.textContent = '▮▮ Pause';
+    setStatus('Playing audio');
+  } else {
+    audioEl.pause();
+    playBtn.textContent = '▶ Play';
+    setStatus('Paused audio');
+  }
+}
+
+audioInput.addEventListener('change', event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  audioEl.src = url;
+  audioEl.load();
+  initAudioGraph();
+  updateAudioSettings();
+  setStatus(`Loaded ${file.name}. Click play when ready.`);
+  playBtn.disabled = false;
+});
+
+playBtn.addEventListener('click', async () => {
+  if (!audioEl.src) return;
+  try {
+    if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
+    playPause();
+  } catch (err) {
+    console.error(err);
+    setStatus('Playback blocked by browser');
+  }
+});
+
+csvInput.addEventListener('change', event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const rows = parseCSV(evt.target.result);
+    loadDeviceData(rows);
+    setStatus(`Loaded CSV recipe ${file.name}`);
+    resetManualLocks();
+  };
+  reader.readAsText(file);
+});
+
+autoToggle.addEventListener('click', () => {
+  autoDrive = !autoDrive;
+  updateAutoButton();
+  setStatus(autoDrive ? 'CSV automation enabled.' : 'Manual EQ mode enabled.');
+});
+
+bassBoostBtn.addEventListener('click', () => {
+  infrasonicBoost = !infrasonicBoost;
+  updateBassBoostButton();
+  if (eqFilters.length) applyEqFilters();
+  setStatus(infrasonicBoost ? 'Infrasonic bass boost enabled.' : 'Infrasonic bass boost disabled.');
+});
+
+resetAuto.addEventListener('click', () => {
+  resetManualLocks();
+  setStatus('Manual locks cleared: CSV can again drive all bands.');
+});
+
+bandInputs.forEach((slider, index) => {
+  slider.addEventListener('input', () => {
+    setBandGain(index, parseFloat(slider.value), true);
+    setStatus(`${bandNames[index]} band manually adjusted.`);
+  });
+});
+
+audioEl.addEventListener('ended', () => {
+  playBtn.textContent = '▶ Play';
+  setStatus('Audio finished');
+});
+
+function resetManualLocks() {
+  manualLock.fill(false);
+  bandLockLabels.forEach(label => label.textContent = 'no');
+}
+
+function loadCsvFromUrl(url, message) {
+  fetch(url)
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+      }
+      return response.text();
+    })
+    .then(text => {
+      const rows = parseCSV(text);
+      loadDeviceData(rows);
+      setStatus(message);
+      resetManualLocks();
+    })
+    .catch(() => {
+      setStatus('CSV load failed, using fallback recipe');
+      loadDeviceData([[0, 185.22, 279.86], [30, 177.00, 281.31], [60, 183.08, 278.10]]);
+      resetManualLocks();
+    });
+}
+
+if (audioSelect) {
+  audioSelect.addEventListener('change', () => {
+    const selection = audioSelect.value;
+    if (selection) loadAudioFileFromUrl(selection, `Audio ${selection}`);
+  });
+}
+if (shuffleAudioBtn) {
+  shuffleAudioBtn.addEventListener('click', () => shuffleAudio());
+}
+if (csvPresetSelect) {
+  csvPresetSelect.addEventListener('change', () => {
+    const selection = csvPresetSelect.value;
+    const label = csvPresetSelect.options[csvPresetSelect.selectedIndex]?.text || selection;
+    if (selection) loadCsvPreset(selection, label);
+  });
+}
+
+setDefaultSelections();
+
+function frame(timestamp) {
+  const t = timestamp / 1000;
+  applyCsvControl(t);
+  drawPixelDisplay();
+  requestAnimationFrame(frame);
+}
+
+loadCsvFromUrl('analog_voltage_log.csv', 'Using analog_voltage_log.csv');
+setBandGain(0, 0, false);
+setBandGain(1, 0, false);
+setBandGain(2, 0, false);
+resetManualLocks();
+updateAutoButton();
+updateBassBoostButton();
+setStatus('Manual EQ mode enabled. Use CSV AUTO to enable automated control.');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
