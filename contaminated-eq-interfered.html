@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mudtronic Contaminated EQ</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: #000;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.06), transparent 18%),
+      radial-gradient(circle at 80% 30%, rgba(255,180,100,0.08), transparent 16%),
+      radial-gradient(circle at 60% 80%, rgba(80,160,255,0.08), transparent 20%);
+    background-size: cover;
+    background-attachment: fixed;
+    color: #eee;
+    font-family: system-ui, sans-serif;
+  }
+  .page {
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 1.2rem 1rem 2rem;
+    box-sizing: border-box;
+    display: grid;
+    gap: 1rem;
+  }
+  .topbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .topbar h1 {
+    margin: 0;
+    font-size: 1.45rem;
+    letter-spacing: 0.06em;
+  }
+  .topbar .status {
+    margin: 0.25rem 0 0;
+    color: #a5b2d5;
+    max-width: 680px;
+  }
+  .controls {
+    display: flex;
+    gap: 0.85rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    font-size: 0.95rem;
+    color: #dde6ff;
+  }
+  .controls label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+  }
+  .controls input[type=file] {
+    color: #fff;
+  }
+  .controls button {
+    padding: 0.7rem 1rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(10,14,24,0.95);
+    color: #f5f8ff;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  }
+  .controls button:hover:not(:disabled) {
+    transform: translateY(-1px);
+    border-color: rgba(120,170,255,0.75);
+  }
+  .controls button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .canvas-panel {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: minmax(360px, 1.5fr) minmax(280px, 1fr);
+  }
+  .panel {
+    background: rgba(5, 8, 14, 0.92);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
+    box-shadow: 0 0 35px rgba(0,0,0,0.24);
+    padding: 1.1rem;
+  }
+  .panel h2 {
+    margin: 0 0 0.85rem;
+    font-size: 0.95rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8ab4ff;
+  }
+  canvas {
+    width: 100%;
+    display: block;
+    border-radius: 14px;
+    background: #02040a;
+    box-shadow: inset 0 0 28px rgba(0,0,0,0.35);
+  }
+  #spectrumCanvas {
+    aspect-ratio: 3 / 1;
+    height: auto;
+  }
+  .band-grid {
+    display: grid;
+    gap: 0.85rem;
+  }
+  @media (min-width: 900px) {
+    .band-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+  .band {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 1rem;
+  }
+  .band label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.95rem;
+    color: #d7d7e1;
+  }
+  .band-grid input[type=range] {
+    width: 100%;
+  }
+  .band p {
+    margin: 0.35rem 0 0;
+    font-size: 0.85rem;
+    color: #9aa8c9;
+  }
+  .sensitivity-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.65rem;
+    margin-top: 1rem;
+  }
+  .sensitivity-grid label {
+    display: grid;
+    gap: 0.35rem;
+    color: #d7d7e1;
+    font-size: 0.82rem;
+  }
+  .sensitivity-grid input[type=range] {
+    width: 100%;
+  }
+  .status {
+    margin: 0;
+    font-size: 0.95rem;
+    color: #bac6e0;
+    line-height: 1.5;
+  }
+  .note {
+    margin: 0.4rem 0 0;
+    color: #8fa8d2;
+    font-size: 0.88rem;
+    max-width: 680px;
+  }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.85rem;
+    font-size: 0.9rem;
+    color: #c7d1e2;
+  }
+  .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+  .legend .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  #bassBoostBtn {
+    background: rgba(20, 40, 25, 0.95);
+    border-color: rgba(64, 156, 88, 0.45);
+  }
+  #traceCanvas {
+    cursor: ew-resize;
+    touch-action: none;
+  }
+  #actionCanvas {
+    cursor: ew-resize;
+    touch-action: none;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="topbar">
+    <div>
+      <h1 style="margin:0;font-size:1.2rem;letter-spacing:0.05em;">Mudtronic Contaminated EQ</h1>
+      <p class="status">Low / Mid / High control with CSV voltage drive and trace plot above the EQ.</p>
+    </div>
+    <div class="controls">
+      <label>Load MP3
+        <input type="file" id="audioInput" accept="audio/*">
+      </label>
+      <button id="playBtn" disabled>▶ Play</button>
+      <button id="monitorToggle">Monitor: WET</button>
+      <label>Load CSV
+        <input type="file" id="csvInput" accept=".csv">
+      </label>
+      <button id="autoToggle">CSV AUTO OFF</button>
+      <button id="bassBoostBtn">Infrasonic Boost OFF</button>
+      <button id="resetAuto">Reset manual locks</button>
+    </div>
+  </div>
+
+  <div class="canvas-panel">
+    <section class="panel">
+      <h2>Voltage traces</h2>
+      <canvas id="traceCanvas" width="720" height="220"></canvas>
+      <h2 class="plot-title">Control action</h2>
+      <canvas id="actionCanvas" width="720" height="180"></canvas>
+      <canvas id="spectrumCanvas" width="960" height="320"></canvas>
+      <div class="legend">
+        <span><span class="dot" style="background:#ffa500"></span>Voltage 1 → Low</span>
+        <span><span class="dot" style="background:#42ff8a"></span>Voltage 2 → Mid</span>
+        <span><span class="dot" style="background:#4da6ff"></span>Voltage 3 → High</span>
+        <span><span class="dot" style="background:#ffffff"></span>Invisible hands → EQ dials</span>
+        <span><span class="dot" style="background:#dce6ff"></span>Flat Dry Reference (0 dB)</span>
+        <span><span class="dot" style="background:#ffbb44"></span>Wet EQ Change</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>EQ display</h2>
+      <canvas id="eqCanvas" width="180" height="114"></canvas>
+      <div class="band-grid">
+        <div class="band">
+          <label>Low (<span id="lowVal">0dB</span>)
+            <input type="range" id="bandLow" min="-24" max="24" step="0.5" value="0">
+          </label>
+          <p><small>Low shelf 20–250 Hz</small></p>
+          <p>Band locked: <span id="lowLock">no</span></p>
+        </div>
+        <div class="band">
+          <label>Mid (<span id="midVal">0dB</span>)
+            <input type="range" id="bandMid" min="-24" max="24" step="0.5" value="0">
+          </label>
+          <p><small>Mid bell 250 Hz–4 kHz</small></p>
+          <p>Band locked: <span id="midLock">no</span></p>
+        </div>
+        <div class="band">
+          <label>High (<span id="highVal">0dB</span>)
+            <input type="range" id="bandHigh" min="-24" max="24" step="0.5" value="0">
+          </label>
+          <p><small>High shelf 4–20 kHz</small></p>
+          <p>Band locked: <span id="highLock">no</span></p>
+        </div>
+      </div>
+      <h2 class="plot-title">Mud sensitivity</h2>
+      <div class="sensitivity-grid">
+        <label>Low <span id="lowMultiplierValue">1.00×</span>
+          <input type="range" id="lowMultiplier" min="0" max="2" step="0.05" value="1">
+        </label>
+        <label>Mid <span id="midMultiplierValue">1.00×</span>
+          <input type="range" id="midMultiplier" min="0" max="2" step="0.05" value="1">
+        </label>
+        <label>High <span id="highMultiplierValue">1.00×</span>
+          <input type="range" id="highMultiplier" min="0" max="2" step="0.05" value="1">
+        </label>
+      </div>
+    </section>
+  </div>
+
+  <p class="status" id="statusLine">Loading CSV recipe and waiting for audio input...</p>
+</div>
+<audio id="audioPlayer" preload="auto"></audio>
+<script>
+const traceCanvas = document.getElementById('traceCanvas');
+const traceCtx = traceCanvas.getContext('2d');
+const actionCanvas = document.getElementById('actionCanvas');
+const actionCtx = actionCanvas.getContext('2d');
+const spectrumCanvas = document.getElementById('spectrumCanvas');
+const spectrumCtx = spectrumCanvas.getContext('2d');
+const eqCanvas = document.getElementById('eqCanvas');
+const eqCtx = eqCanvas.getContext('2d');
+const audioEl = document.getElementById('audioPlayer');
+const playBtn = document.getElementById('playBtn');
+const monitorToggle = document.getElementById('monitorToggle');
+const audioInput = document.getElementById('audioInput');
+const csvInput = document.getElementById('csvInput');
+const autoToggle = document.getElementById('autoToggle');
+const bassBoostBtn = document.getElementById('bassBoostBtn');
+const resetAuto = document.getElementById('resetAuto');
+const statusLine = document.getElementById('statusLine');
+const bandLow = document.getElementById('bandLow');
+const bandMid = document.getElementById('bandMid');
+const bandHigh = document.getElementById('bandHigh');
+const lowVal = document.getElementById('lowVal');
+const midVal = document.getElementById('midVal');
+const highVal = document.getElementById('highVal');
+const lowLock = document.getElementById('lowLock');
+const midLock = document.getElementById('midLock');
+const highLock = document.getElementById('highLock');
+const lowMultiplier = document.getElementById('lowMultiplier');
+const midMultiplier = document.getElementById('midMultiplier');
+const highMultiplier = document.getElementById('highMultiplier');
+const lowMultiplierValue = document.getElementById('lowMultiplierValue');
+const midMultiplierValue = document.getElementById('midMultiplierValue');
+const highMultiplierValue = document.getElementById('highMultiplierValue');
+
+const bandNames = ['Low', 'Mid', 'High'];
+const bandLabels = [lowVal, midVal, highVal];
+const bandLockLabels = [lowLock, midLock, highLock];
+const bandInputs = [bandLow, bandMid, bandHigh];
+const multiplierInputs = [lowMultiplier, midMultiplier, highMultiplier];
+const multiplierLabels = [lowMultiplierValue, midMultiplierValue, highMultiplierValue];
+const manualLock = [false, false, false];
+const bandGain = [0, 0, 0];
+const bandMultiplier = [1, 1, 1];
+const bandFreqs = [220, 1000, 4200];
+
+let audioCtx = null;
+let audioInputGain = null;
+let audioPan = null;
+let audioOutputGain = null;
+let dryMonitorGain = null;
+let wetMonitorGain = null;
+let analyserInput = null;
+let analyserOutput = null;
+let eqFilters = [];
+let lowShelf = null;
+let infrasonicShelf = null;
+let midPeak = null;
+let highShelf = null;
+let traceData = [];
+let dryFrequency = null;
+let wetFrequency = null;
+let voltageData = [];
+let voltageCount = 3;
+const voltageMin = [0, 0, 0];
+const voltageMax = [1, 1, 1];
+let dataDuration = 1;
+let playhead = 0;
+let lastTimestamp = 0;
+let autoDrive = false;
+let infrasonicBoost = false;
+let isScrubbing = false;
+let monitorWet = true;
+
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function fmtDb(gain) { return `${gain >= 0 ? '+' : ''}${gain.toFixed(1)} dB`; }
+function dbToGain(db) { return Math.pow(10, db / 20); }
+function setStatus(text) { statusLine.textContent = text; }
+function updateAutoButton() {
+  autoToggle.textContent = autoDrive ? 'CSV AUTO ON' : 'CSV AUTO OFF';
+  autoToggle.style.background = autoDrive ? '#15391f' : '#12161f';
+}
+
+function updateBassBoostButton() {
+  bassBoostBtn.textContent = infrasonicBoost ? 'Infrasonic Boost ON' : 'Infrasonic Boost OFF';
+  bassBoostBtn.style.background = infrasonicBoost ? '#2d1a3e' : '#12161f';
+}
+
+function updateMonitorMode() {
+  monitorToggle.textContent = monitorWet ? 'Monitor: WET' : 'Monitor: DRY';
+  monitorToggle.style.background = monitorWet ? '#15391f' : '#17304d';
+  if (dryMonitorGain) dryMonitorGain.gain.value = monitorWet ? 0 : 1;
+  if (wetMonitorGain) wetMonitorGain.gain.value = monitorWet ? 1 : 0;
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  const rows = lines.map(line => line.split(',').map(value => value.trim()));
+  const headers = rows[0].map(header => header.toLowerCase());
+  const selectedColumns = ['voltage1', 'voltage2', 'voltage3'].map(name => headers.indexOf(name));
+  const analogColumns = ['device1_mv', 'device2_mv', 'device3_mv'].map(name => headers.indexOf(name));
+  const columns = selectedColumns.every(index => index >= 0) ? selectedColumns : analogColumns;
+  if (columns.every(index => index >= 0)) {
+    return rows.slice(1).map(row => columns.map(index => Number(row[index])));
+  }
+  const headerOffset = rows[0].some(cell => Number.isNaN(Number(cell))) ? 1 : 0;
+  return rows.slice(headerOffset).map(row => row.slice(-3).map(Number));
+}
+
+function loadVoltageData(rows) {
+  const clean = rows.filter(row => row.length >= 3 && row.slice(0, 3).every(v => !Number.isNaN(v)));
+  if (!clean.length) return;
+  voltageData = clean.map(row => row.slice(0, 3));
+  voltageCount = Math.min(3, voltageData[0].length);
+  for (let band = 0; band < voltageCount; band++) {
+    let minimum = Infinity;
+    let maximum = -Infinity;
+    voltageData.forEach(row => {
+      minimum = Math.min(minimum, row[band]);
+      maximum = Math.max(maximum, row[band]);
+    });
+    voltageMin[band] = minimum;
+    voltageMax[band] = maximum > minimum ? maximum : minimum + 1;
+  }
+  dataDuration = Math.max(1, clean.length - 1);
+  traceData = voltageData.map(row => row.slice(0, 3));
+}
+
+function drawTraceCanvas(progress = 0) {
+  const w = traceCanvas.width;
+  const h = traceCanvas.height;
+  traceCtx.clearRect(0, 0, w, h);
+  traceCtx.fillStyle = '#04050a';
+  traceCtx.fillRect(0, 0, w, h);
+  traceCtx.strokeStyle = '#192334';
+  traceCtx.lineWidth = 1;
+  for (let i = 1; i < 5; i++) {
+    const y = (h / 6) * i;
+    traceCtx.beginPath();
+    traceCtx.moveTo(0, y);
+    traceCtx.lineTo(w, y);
+    traceCtx.stroke();
+  }
+  if (!traceData.length) {
+    traceCtx.fillStyle = '#7f8faf';
+    traceCtx.font = '16px sans-serif';
+    traceCtx.fillText('Loading CSV voltage traces...', 20, h / 2);
+    return;
+  }
+  const points = traceData.length;
+  const xValues = traceData.map((_, i) => i / Math.max(1, points - 1));
+  const values = traceData.flat();
+  const yMin = Math.min(...values);
+  const yMax = Math.max(...values);
+  const colors = ['#ffa500', '#42ff8a', '#4da6ff'];
+  for (let band = 0; band < 3; band++) {
+    traceCtx.strokeStyle = colors[band];
+    traceCtx.lineWidth = 2;
+    traceCtx.beginPath();
+    traceData.forEach((row, index) => {
+      const x = 40 + xValues[index] * (w - 60);
+      const y = h - 26 - ((row[band] - yMin) / Math.max(1, yMax - yMin)) * (h - 60);
+      if (index === 0) traceCtx.moveTo(x, y);
+      else traceCtx.lineTo(x, y);
+    });
+    traceCtx.stroke();
+  }
+  const markerX = 40 + progress * (w - 60);
+  traceCtx.strokeStyle = '#ffffff';
+  traceCtx.lineWidth = 1;
+  traceCtx.beginPath();
+  traceCtx.moveTo(markerX, 16);
+  traceCtx.lineTo(markerX, h - 20);
+  traceCtx.stroke();
+  traceCtx.fillStyle = '#fff';
+  traceCtx.font = '12px sans-serif';
+  traceCtx.fillText(`Progress ${(progress * 100).toFixed(0)}%`, markerX + 8, 20);
+}
+
+function drawActionCanvas(progress = 0) {
+  const w = actionCanvas.width;
+  const h = actionCanvas.height;
+  const left = 48;
+  const right = w - 16;
+  const top = 20;
+  const bottom = h - 24;
+  const centerY = (top + bottom) / 2;
+  const colors = ['#ffa500', '#42ff8a', '#4da6ff'];
+  const labels = ['LOW', 'MID', 'HIGH'];
+  const yForGain = gain => centerY - clamp(gain, -24, 24) / 24 * (centerY - top);
+  actionCtx.clearRect(0, 0, w, h);
+  actionCtx.fillStyle = '#04050a';
+  actionCtx.fillRect(0, 0, w, h);
+  [-24, -12, 0, 12, 24].forEach(gain => {
+    const y = yForGain(gain);
+    const isZero = gain === 0;
+    actionCtx.strokeStyle = isZero ? 'rgba(220,230,255,0.65)' : '#192334';
+    actionCtx.setLineDash(isZero ? [5, 4] : []);
+    actionCtx.beginPath();
+    actionCtx.moveTo(left, y);
+    actionCtx.lineTo(right, y);
+    actionCtx.stroke();
+    actionCtx.setLineDash([]);
+    actionCtx.fillStyle = isZero ? '#dce6ff' : '#8d9ab8';
+    actionCtx.font = '10px sans-serif';
+    actionCtx.fillText(`${gain > 0 ? '+' : ''}${gain} dB`, 4, y + 3);
+  });
+  if (!voltageData.length) return;
+  const steps = Math.min(360, Math.max(2, voltageData.length));
+  for (let band = 0; band < 3; band++) {
+    actionCtx.strokeStyle = colors[band];
+    actionCtx.lineWidth = 2;
+    actionCtx.beginPath();
+    for (let step = 0; step < steps; step++) {
+      const pointProgress = step / (steps - 1);
+      const gain = mapCSVToBands(sampleVoltages(pointProgress))[band];
+      const x = left + pointProgress * (right - left);
+      const y = yForGain(gain);
+      if (step === 0) actionCtx.moveTo(x, y);
+      else actionCtx.lineTo(x, y);
+    }
+    actionCtx.stroke();
+  }
+  const markerX = left + progress * (right - left);
+  actionCtx.strokeStyle = '#ffffff';
+  actionCtx.lineWidth = 1;
+  actionCtx.beginPath();
+  actionCtx.moveTo(markerX, top);
+  actionCtx.lineTo(markerX, bottom);
+  actionCtx.stroke();
+  const currentGains = mapCSVToBands(sampleVoltages(progress));
+  currentGains.forEach((gain, band) => {
+    const y = yForGain(gain);
+    actionCtx.fillStyle = colors[band];
+    actionCtx.beginPath();
+    actionCtx.arc(markerX, y, 4, 0, Math.PI * 2);
+    actionCtx.fill();
+  });
+  labels.forEach((label, band) => {
+    actionCtx.fillStyle = colors[band];
+    actionCtx.font = '10px sans-serif';
+    actionCtx.fillText(`${label} ${fmtDb(currentGains[band])}`, left + 6 + band * 122, top + 12);
+  });
+}
+
+function drawSpectrumCanvas() {
+  const w = spectrumCanvas.width;
+  const h = spectrumCanvas.height;
+  const left = 54;
+  const right = w - 14;
+  const top = 30;
+  const bottom = h - 28;
+  const referenceY = (top + bottom) / 2;
+  const minFrequency = 20;
+  const maxFrequency = 20000;
+  const frequencyTicks = [20, 60, 120, 250, 500, 1000, 2000, 4000, 8000, 16000];
+  const frequencyToX = frequency => left + Math.log(frequency / minFrequency) / Math.log(maxFrequency / minFrequency) * (right - left);
+  const frequencyLabel = frequency => frequency >= 1000 ? `${frequency / 1000}k` : `${frequency}`;
+  spectrumCtx.clearRect(0, 0, w, h);
+  spectrumCtx.fillStyle = '#02040a';
+  spectrumCtx.fillRect(0, 0, w, h);
+  const bands = [
+    { start: 20, end: 250, color: 'rgba(255,165,0,0.08)', label: 'LOW 20-250 Hz' },
+    { start: 250, end: 4000, color: 'rgba(66,255,138,0.06)', label: 'MID 250 Hz-4 kHz' },
+    { start: 4000, end: 20000, color: 'rgba(77,166,255,0.07)', label: 'HIGH 4-20 kHz' }
+  ];
+  bands.forEach(band => {
+    const x = frequencyToX(band.start);
+    const width = frequencyToX(band.end) - x;
+    spectrumCtx.fillStyle = band.color;
+    spectrumCtx.fillRect(x, top, width, bottom - top);
+    spectrumCtx.fillStyle = '#aab8d8';
+    spectrumCtx.font = '10px sans-serif';
+    spectrumCtx.fillText(band.label, x + 5, 14);
+  });
+  spectrumCtx.strokeStyle = '#192334';
+  spectrumCtx.lineWidth = 1;
+  const gainGrid = [
+    { label: '+24 dB', y: top },
+    { label: '+12 dB', y: (top + referenceY) / 2 },
+    { label: '0 dB', y: referenceY },
+    { label: '-12 dB', y: (referenceY + bottom) / 2 },
+    { label: '-24 dB', y: bottom }
+  ];
+  gainGrid.forEach(grid => {
+    const isReference = grid.y === referenceY;
+    spectrumCtx.strokeStyle = isReference ? 'rgba(220, 230, 255, 0.6)' : '#192334';
+    spectrumCtx.setLineDash(isReference ? [5, 4] : []);
+    spectrumCtx.beginPath();
+    spectrumCtx.moveTo(left, grid.y);
+    spectrumCtx.lineTo(right, grid.y);
+    spectrumCtx.stroke();
+    spectrumCtx.setLineDash([]);
+    spectrumCtx.fillStyle = isReference ? '#dce6ff' : '#8d9ab8';
+    spectrumCtx.font = '10px sans-serif';
+    spectrumCtx.fillText(grid.label, 4, grid.y + 3);
+  });
+  frequencyTicks.forEach(frequency => {
+    const x = frequencyToX(frequency);
+    spectrumCtx.strokeStyle = frequency === 250 || frequency === 4000 ? '#6077a8' : '#192334';
+    spectrumCtx.beginPath();
+    spectrumCtx.moveTo(x, top);
+    spectrumCtx.lineTo(x, bottom);
+    spectrumCtx.stroke();
+    spectrumCtx.fillStyle = '#aab8d8';
+    spectrumCtx.font = '10px sans-serif';
+    spectrumCtx.fillText(frequencyLabel(frequency), x - 8, h - 8);
+  });
+  if (analyserInput && analyserOutput && dryFrequency && wetFrequency) {
+    analyserInput.getByteFrequencyData(dryFrequency);
+    analyserOutput.getByteFrequencyData(wetFrequency);
+    const binCount = Math.min(dryFrequency.length, wetFrequency.length);
+    const sampleRate = audioCtx ? audioCtx.sampleRate : 44100;
+    spectrumCtx.strokeStyle = '#ffbb44';
+    spectrumCtx.lineWidth = 2;
+    spectrumCtx.beginPath();
+    for (let pixel = 0; pixel <= right - left; pixel++) {
+      const x = left + pixel;
+      const frequency = minFrequency * Math.pow(maxFrequency / minFrequency, pixel / (right - left));
+      const bin = clamp(Math.round(frequency / (sampleRate / (binCount * 2))), 0, binCount - 1);
+      const dryDb = 20 * Math.log10(Math.max(1, dryFrequency[bin]) / 255);
+      const wetDb = 20 * Math.log10(Math.max(1, wetFrequency[bin]) / 255);
+      const eqChange = clamp(wetDb - dryDb, -24, 24);
+      const y = referenceY - eqChange / 24 * (referenceY - top);
+      if (pixel === 0) spectrumCtx.moveTo(x, y);
+      else spectrumCtx.lineTo(x, y);
+    }
+    spectrumCtx.stroke();
+  }
+  spectrumCtx.fillStyle = '#c7d1e2';
+  spectrumCtx.font = '10px sans-serif';
+  spectrumCtx.fillStyle = '#ffbb44';
+  spectrumCtx.fillText('WET - DRY', 8, 38);
+  spectrumCtx.fillStyle = '#dce6ff';
+  spectrumCtx.fillText('0 dB EQ reference', left + 5, referenceY - 6);
+}
+
+function mapCSVToBands(sample) {
+  if (!sample.length) return [0, 0, 0];
+  const voltage1 = sample[0] ?? 0;
+  const voltage2 = sample[1] ?? 0;
+  const voltage3 = sample[2] ?? 0;
+  const baseGains = [
+    mapRange(voltage1, voltageMin[0], voltageMax[0], -12, 12),
+    mapRange(voltage2, voltageMin[1], voltageMax[1], -12, 12),
+    mapRange(voltage3, voltageMin[2], voltageMax[2], -12, 12)
+  ];
+  return baseGains.map((gain, index) => clamp(gain * bandMultiplier[index], -24, 24));
+}
+
+function mapRange(value, inMin, inMax, outMin, outMax) {
+  const mapped = ((value - inMin) * (outMax - outMin)) / (inMax - inMin) + outMin;
+  return clamp(mapped, Math.min(outMin, outMax), Math.max(outMin, outMax));
+}
+
+function drawEqCanvas() {
+  const w = eqCanvas.width;
+  const h = eqCanvas.height;
+  eqCtx.fillStyle = '#01040a';
+  eqCtx.fillRect(0, 0, w, h);
+  eqCtx.fillStyle = '#121820';
+  eqCtx.fillRect(2, 2, w - 4, h - 4);
+  const ranges = [
+    { label: 'LOW', color: '#ffa500', x: 12, width: 44, text: '20-250 Hz' },
+    { label: 'MID', color: '#42ff8a', x: 60, width: 58, text: '250-4k Hz' },
+    { label: 'HIGH', color: '#4da6ff', x: 124, width: 44, text: '4-20k Hz' }
+  ];
+  ranges.forEach(range => {
+    eqCtx.fillStyle = '#0f1723';
+    eqCtx.fillRect(range.x, 12, range.width, h - 36);
+    eqCtx.strokeStyle = '#1e2a3e';
+    eqCtx.strokeRect(range.x, 12, range.width, h - 36);
+    eqCtx.fillStyle = range.color;
+    eqCtx.font = '10px sans-serif';
+    eqCtx.fillText(range.text, range.x + 2, 24);
+  });
+  eqCtx.fillStyle = '#fff';
+  eqCtx.font = '12px sans-serif';
+  ranges.forEach((range, index) => {
+    eqCtx.fillText(range.label, range.x + 4, h - 12);
+  });
+  eqCtx.strokeStyle = 'rgba(158, 176, 222, 0.45)';
+  eqCtx.lineWidth = 1;
+  eqCtx.setLineDash([4, 4]);
+  eqCtx.beginPath();
+  eqCtx.moveTo(8, h / 2);
+  eqCtx.lineTo(w - 8, h / 2);
+  eqCtx.stroke();
+  eqCtx.setLineDash([]);
+  eqCtx.fillStyle = '#aab8d8';
+  eqCtx.font = '11px sans-serif';
+  eqCtx.fillText('0 dB dry baseline', 12, h / 2 - 8);
+  const values = bandGain.map(g => (g + 24) / 48);
+  ['#ffa500', '#42ff8a', '#4da6ff'].forEach((col, index) => {
+    const x = ranges[index].x + 10;
+    const bar = Math.round(values[index] * (h - 60));
+    eqCtx.fillStyle = col;
+    eqCtx.fillRect(x, h - 18 - bar, 16, bar);
+    eqCtx.fillStyle = '#ffffff';
+    eqCtx.fillText(fmtDb(bandGain[index]), x - 6, h - 22 - bar);
+  });
+}
+
+function createEQFilters() {
+  eqFilters = [];
+  lowShelf = audioCtx.createBiquadFilter();
+  lowShelf.type = 'lowshelf';
+  lowShelf.frequency.value = 250;
+  lowShelf.gain.value = 0;
+  infrasonicShelf = audioCtx.createBiquadFilter();
+  infrasonicShelf.type = 'lowshelf';
+  infrasonicShelf.frequency.value = 60;
+  infrasonicShelf.gain.value = 0;
+  eqFilters.push(lowShelf);
+  eqFilters.push(infrasonicShelf);
+  midPeak = audioCtx.createBiquadFilter();
+  midPeak.type = 'peaking';
+  midPeak.frequency.value = 1000;
+  midPeak.Q.value = 0.7;
+  highShelf = audioCtx.createBiquadFilter();
+  highShelf.type = 'highshelf';
+  highShelf.frequency.value = 4000;
+  eqFilters.push(midPeak);
+  eqFilters.push(highShelf);
+  audioInputGain.connect(lowShelf);
+  lowShelf.connect(infrasonicShelf);
+  infrasonicShelf.connect(midPeak);
+  midPeak.connect(highShelf);
+}
+
+function applyEqFilters() {
+  if (lowShelf) lowShelf.gain.value = bandGain[0];
+  if (infrasonicShelf) infrasonicShelf.gain.value = infrasonicBoost ? 12 : 0;
+  if (midPeak) midPeak.gain.value = bandGain[1];
+  if (highShelf) highShelf.gain.value = bandGain[2];
+}
+
+function setBandGain(index, gain, markManual = false) {
+  bandGain[index] = clamp(gain, -24, 24);
+  bandInputs[index].value = bandGain[index];
+  bandLabels[index].textContent = fmtDb(bandGain[index]);
+  if (markManual) {
+    manualLock[index] = true;
+    bandLockLabels[index].textContent = 'yes';
+  }
+  if (eqFilters.length) applyEqFilters();
+}
+
+function initAudioGraph() {
+  if (!audioEl) return;
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaElementSource(audioEl);
+    audioInputGain = audioCtx.createGain();
+    audioPan = audioCtx.createStereoPanner();
+    audioOutputGain = audioCtx.createGain();
+    dryMonitorGain = audioCtx.createGain();
+    wetMonitorGain = audioCtx.createGain();
+    analyserInput = audioCtx.createAnalyser();
+    analyserOutput = audioCtx.createAnalyser();
+    analyserInput.fftSize = 256;
+    analyserOutput.fftSize = 256;
+    dryFrequency = new Uint8Array(analyserInput.frequencyBinCount);
+    wetFrequency = new Uint8Array(analyserOutput.frequencyBinCount);
+    createEQFilters();
+    source.connect(analyserInput);
+    analyserInput.connect(dryMonitorGain);
+    source.connect(audioInputGain);
+    highShelf.connect(analyserOutput);
+    analyserOutput.connect(wetMonitorGain);
+    dryMonitorGain.connect(audioPan);
+    wetMonitorGain.connect(audioPan);
+    audioPan.connect(audioOutputGain);
+    audioOutputGain.connect(audioCtx.destination);
+    updateMonitorMode();
+  }
+}
+
+function updateAudioSettings() {
+  if (audioInputGain) audioInputGain.gain.value = 1;
+  if (audioPan) audioPan.pan.value = 0;
+  if (audioOutputGain) audioOutputGain.gain.value = 1;
+}
+
+function applyCsvControl(t) {
+  if (!voltageData.length) return;
+  const progress = audioEl.src && Number.isFinite(audioEl.duration) && audioEl.duration > 0
+    ? clamp(audioEl.currentTime / audioEl.duration, 0, 1)
+    : 0;
+  const sample = sampleVoltages(progress);
+  const bandValues = mapCSVToBands(sample);
+  if (autoDrive) {
+    for (let i = 0; i < 3; i++) {
+      if (!manualLock[i]) setBandGain(i, bandValues[i], false);
+    }
+  }
+  drawTraceCanvas(progress);
+  drawActionCanvas(progress);
+  drawSpectrumCanvas();
+}
+
+function sampleVoltages(progress) {
+  const n = voltageData.length;
+  if (!n) return [0, 0, 0];
+  const position = progress * (n - 1);
+  const i0 = Math.floor(position);
+  const i1 = Math.min(i0 + 1, n - 1);
+  const fract = position - i0;
+  const out = [];
+  for (let d = 0; d < voltageCount; d++) {
+    const v0 = voltageData[i0][d];
+    const v1 = voltageData[i1][d];
+    out.push(v0 + (v1 - v0) * fract);
+  }
+  return out;
+}
+
+function scrubTimeline(event, canvas) {
+  if (!audioEl.src || !Number.isFinite(audioEl.duration) || audioEl.duration <= 0) return;
+  const bounds = canvas.getBoundingClientRect();
+  const canvasX = (event.clientX - bounds.left) / bounds.width * canvas.width;
+  const plotLeft = canvas === actionCanvas ? 48 : 40;
+  const plotRight = canvas === actionCanvas ? 16 : 20;
+  const progress = clamp((canvasX - plotLeft) / (canvas.width - plotLeft - plotRight), 0, 1);
+  audioEl.currentTime = audioEl.duration * progress;
+  applyCsvControl(0);
+  setStatus(`Scrubbing ${(progress * 100).toFixed(0)}% of ${audioEl.duration.toFixed(1)} s`);
+}
+
+function playPause() {
+  if (!audioEl.src) return;
+  if (!audioCtx) initAudioGraph();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  if (audioEl.paused) {
+    audioEl.play();
+    playBtn.textContent = '▮▮ Pause';
+    setStatus('Playing audio');
+  } else {
+    audioEl.pause();
+    playBtn.textContent = '▶ Play';
+    setStatus('Paused audio');
+  }
+}
+
+audioInput.addEventListener('change', event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  audioEl.src = url;
+  audioEl.load();
+  initAudioGraph();
+  updateAudioSettings();
+  setStatus(`Loaded ${file.name}. Click play when ready.`);
+  playBtn.disabled = false;
+});
+
+playBtn.addEventListener('click', async () => {
+  if (!audioEl.src) return;
+  try {
+    if (audioCtx && audioCtx.state === 'suspended') await audioCtx.resume();
+    playPause();
+  } catch (err) {
+    console.error(err);
+    setStatus('Playback blocked by browser');
+  }
+});
+
+monitorToggle.addEventListener('click', () => {
+  monitorWet = !monitorWet;
+  updateMonitorMode();
+  setStatus(monitorWet ? 'Monitoring wet EQ output.' : 'Monitoring unprocessed dry input.');
+});
+
+traceCanvas.addEventListener('pointerdown', event => {
+  isScrubbing = true;
+  traceCanvas.setPointerCapture(event.pointerId);
+  scrubTimeline(event, traceCanvas);
+});
+
+traceCanvas.addEventListener('pointermove', event => {
+  if (isScrubbing) scrubTimeline(event, traceCanvas);
+});
+
+traceCanvas.addEventListener('pointerup', event => {
+  isScrubbing = false;
+  traceCanvas.releasePointerCapture(event.pointerId);
+});
+
+traceCanvas.addEventListener('pointercancel', () => {
+  isScrubbing = false;
+});
+
+actionCanvas.addEventListener('pointerdown', event => {
+  isScrubbing = true;
+  actionCanvas.setPointerCapture(event.pointerId);
+  scrubTimeline(event, actionCanvas);
+});
+
+actionCanvas.addEventListener('pointermove', event => {
+  if (isScrubbing) scrubTimeline(event, actionCanvas);
+});
+
+actionCanvas.addEventListener('pointerup', event => {
+  isScrubbing = false;
+  actionCanvas.releasePointerCapture(event.pointerId);
+});
+
+actionCanvas.addEventListener('pointercancel', () => {
+  isScrubbing = false;
+});
+
+csvInput.addEventListener('change', event => {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => {
+    const rows = parseCSV(evt.target.result);
+    loadVoltageData(rows);
+    setStatus(`Loaded CSV recipe ${file.name}`);
+    resetManualLocks();
+  };
+  reader.readAsText(file);
+});
+
+autoToggle.addEventListener('click', () => {
+  autoDrive = !autoDrive;
+  updateAutoButton();
+  setStatus(autoDrive ? 'CSV automation enabled.' : 'Manual EQ mode enabled.');
+});
+
+bassBoostBtn.addEventListener('click', () => {
+  infrasonicBoost = !infrasonicBoost;
+  updateBassBoostButton();
+  if (eqFilters.length) applyEqFilters();
+  setStatus(infrasonicBoost ? 'Infrasonic bass boost enabled.' : 'Infrasonic bass boost disabled.');
+});
+
+resetAuto.addEventListener('click', () => {
+  resetManualLocks();
+  setStatus('Manual locks cleared: CSV can again drive all bands.');
+});
+
+bandInputs.forEach((slider, index) => {
+  slider.addEventListener('input', () => {
+    setBandGain(index, parseFloat(slider.value), true);
+    setStatus(`${bandNames[index]} band manually adjusted.`);
+  });
+});
+
+multiplierInputs.forEach((slider, index) => {
+  slider.addEventListener('input', () => {
+    bandMultiplier[index] = parseFloat(slider.value);
+    multiplierLabels[index].textContent = `${bandMultiplier[index].toFixed(2)}×`;
+    applyCsvControl(0);
+    setStatus(`${bandNames[index]} mud sensitivity set to ${bandMultiplier[index].toFixed(2)}×.`);
+  });
+});
+
+audioEl.addEventListener('ended', () => {
+  playBtn.textContent = '▶ Play';
+  setStatus('Audio finished');
+});
+
+function resetManualLocks() {
+  manualLock.fill(false);
+  bandLockLabels.forEach(label => label.textContent = 'no');
+}
+
+function loadCsvFromUrl(url, message) {
+  fetch(url)
+    .then(response => response.text())
+    .then(text => {
+      const rows = parseCSV(text);
+      loadVoltageData(rows);
+      setStatus(message);
+      resetManualLocks();
+    })
+    .catch(() => {
+      setStatus('CSV load failed, using fallback recipe');
+      loadVoltageData([[185.22, 279.86, 182.69], [177, 281.31, 183.08], [173.02, 276.78, 190.61]]);
+      resetManualLocks();
+    });
+}
+
+function frame(timestamp) {
+  const t = timestamp / 1000;
+  lastTimestamp = t;
+  applyCsvControl(t);
+  drawEqCanvas();
+  requestAnimationFrame(frame);
+}
+
+loadCsvFromUrl('shewa_plantarum_parsed.csv', 'Using shewa_plantarum_parsed.csv: voltage1, voltage2, voltage3');
+setBandGain(0, 0, false);
+setBandGain(1, 0, false);
+setBandGain(2, 0, false);
+resetManualLocks();
+updateAutoButton();
+updateBassBoostButton();
+updateMonitorMode();
+setStatus('Manual EQ mode enabled. Use CSV AUTO to enable automated control.');
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
